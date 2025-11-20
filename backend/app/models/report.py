@@ -99,6 +99,7 @@ class Report:
                     'id': str(user['_id']),
                     'name': user['name'],
                     'email': user['email'],
+                    'username': user.get('username'),
                     'department': user['department']
                 }
             

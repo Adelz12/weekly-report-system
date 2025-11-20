@@ -38,8 +38,17 @@ const AdminDashboard = () => {
       </Typography>
       <Grid container spacing={3}>
         <Grid item xs={12}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Button variant="outlined" href="/admin/activity">View Activity Feed</Button>
+            <Button variant="contained" onClick={async () => {
+              try {
+                const res = await axios.post('/api/reports/reminders/send', {});
+                alert(`Reminders: notified ${res.data.notified_count} user(s) for week ${res.data.week} ${res.data.year}`);
+              } catch (err) {
+                console.error(err);
+                alert('Failed to send reminders');
+              }
+            }}>Send Reminders</Button>
           </Box>
         </Grid>
         <Grid item xs={12} md={6}>

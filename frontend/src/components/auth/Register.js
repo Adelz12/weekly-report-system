@@ -17,6 +17,7 @@ const departments = [
 const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     email: '',
     password: '',
     department: ''
@@ -25,7 +26,7 @@ const Register = () => {
   const { setIsAuthenticated, setUser } = useAuth();
   const history = useHistory();
 
-  const { name, email, password, department } = formData;
+  const { name, username, email, password, department } = formData;
 
   const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -34,7 +35,11 @@ const Register = () => {
     setError('');
     
     try {
-      const res = await axios.post('/api/auth/register', formData);
+      const payload = {
+        ...formData,
+        username: (formData.username || '').trim()
+      };
+      const res = await axios.post('/api/auth/register', payload);
       
       localStorage.setItem('token', res.data.token);
       setAuthToken(res.data.token);
@@ -74,6 +79,18 @@ const Register = () => {
               autoFocus
               value={name}
               onChange={onChange}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="username"
+              label="Username"
+              name="username"
+              autoComplete="username"
+              value={username}
+              onChange={onChange}
+              helperText="Letters/numbers only; will be used to login"
             />
             <TextField
               margin="normal"

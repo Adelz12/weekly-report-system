@@ -1,24 +1,31 @@
-import React, { useContext } from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, IconButton } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Slide } from '@mui/material';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { Link as RouterLink, useHistory } from 'react-router-dom';
 import { useAuth } from '../../context/authContext';
+import setAuthToken from '../../utils/setAuthToken';
 
 const Navbar = ({ toggleTheme, mode }) => {
   const { isAuthenticated, setIsAuthenticated } = useAuth();
   const history = useHistory();
 
   const onLogout = () => {
-    localStorage.removeItem('token');
+    try { localStorage.removeItem('token'); } catch (_) {}
+    try { sessionStorage.removeItem('token'); } catch (_) {}
+    setAuthToken(null);
     setIsAuthenticated(false);
     history.push('/login');
   };
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   return (
-    <AppBar position="static">
-      <Toolbar>
-        <Typography variant="h6" component={RouterLink} to="/" style={{ textDecoration: 'none', color: 'white', flexGrow: 1 }}>
+    <Slide direction="down" in={mounted} mountOnEnter unmountOnExit timeout={400}>
+      <AppBar position="sticky" elevation={2} color="transparent">
+        <Toolbar sx={{ minHeight: 56 }}>
+        <Typography variant="h6" component={RouterLink} to="/" style={{ textDecoration: 'none', color: 'inherit', flexGrow: 1 }}>
           Weekly Report System
         </Typography>
         {isAuthenticated ? (
@@ -56,8 +63,9 @@ const Navbar = ({ toggleTheme, mode }) => {
             </Button>
           </Box>
         )}
-      </Toolbar>
-    </AppBar>
+        </Toolbar>
+      </AppBar>
+    </Slide>
   );
 };
 

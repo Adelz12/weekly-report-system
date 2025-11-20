@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useHistory } from 'react-router-dom';
 import axios from 'axios';
-import { Container, Grid, Paper, Typography, Box, Button, Card, CardContent, CardActions } from '@mui/material';
+import { Container, Grid, Paper, Typography, Box, Button, Card, CardContent, CardActions, Fade, Grow } from '@mui/material';
 import { useAuth } from '../../context/authContext';
 
 const Dashboard = () => {
@@ -50,13 +50,15 @@ const Dashboard = () => {
   }
 
   return (
+    <Fade in timeout={400}>
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Typography variant="h4" gutterBottom>
-        Welcome, {user?.name}!
+        Welcome ({user?.name})
       </Typography>
       
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
+          <Grow in timeout={500}>
           <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h6" gutterBottom>
               This Week's Report
@@ -81,6 +83,22 @@ const Dashboard = () => {
                   <Button size="small" onClick={() => history.push(`/reports/edit/${currentWeekReport._id}`)}>
                     {currentWeekReport.status === 'draft' ? 'Continue Editing' : 'View Report'}
                   </Button>
+                  <Button size="small" onClick={async () => {
+                    try {
+                      const res = await axios.get(`/api/reports/${currentWeekReport._id}/pdf`, { responseType: 'blob' });
+                      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.setAttribute('download', `report_${currentWeekReport._id}.pdf`);
+                      document.body.appendChild(link);
+                      link.click();
+                      link.parentNode.removeChild(link);
+                    } catch (err) {
+                      console.error('Download PDF failed', err);
+                    }
+                  }}>
+                    Download PDF
+                  </Button>
                 </CardActions>
               </Card>
             ) : (
@@ -94,9 +112,11 @@ const Dashboard = () => {
               </Box>
             )}
           </Paper>
+          </Grow>
         </Grid>
         
         <Grid item xs={12} md={4}>
+          <Grow in timeout={650}>
           <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h6" gutterBottom>
               Quick Actions
@@ -115,9 +135,11 @@ const Dashboard = () => {
               )}
             </Box>
           </Paper>
+          </Grow>
         </Grid>
         
         <Grid item xs={12}>
+          <Grow in timeout={800}>
           <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h6" gutterBottom>
               Recent Reports
@@ -149,9 +171,11 @@ const Dashboard = () => {
               </Typography>
             )}
           </Paper>
+          </Grow>
         </Grid>
       </Grid>
     </Container>
+    </Fade>
   );
 };
 

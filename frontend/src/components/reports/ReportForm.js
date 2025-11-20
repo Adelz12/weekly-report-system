@@ -81,6 +81,7 @@ const ReportForm = () => {
     setLoading(true);
     
     try {
+        const authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (isEdit) {
         // use multipart/form-data if attachments present
         if (attachments.length > 0 || tags) {
@@ -88,10 +89,10 @@ const ReportForm = () => {
           Object.entries({ ...formData, status: 'submitted' }).forEach(([k,v]) => fd.append(k, v));
           if (tags) fd.append('tags', tags);
           attachments.forEach(f => fd.append('attachments', f));
-          await axios.put(`/api/reports/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+          await axios.put(`/api/reports/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
         } else {
           // send JSON including parsed tags array
-          await axios.put(`/api/reports/${id}`, { ...formData, status: 'submitted', tags: parseTags(tags) });
+          await axios.put(`/api/reports/${id}`, { ...formData, status: 'submitted', tags: parseTags(tags) }, { headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
         }
         setSuccess('Report submitted successfully!');
       } else {
@@ -100,9 +101,9 @@ const ReportForm = () => {
     Object.entries({ ...formData, status: 'submitted' }).forEach(([k,v]) => fd.append(k, v));
     if (tags) fd.append('tags', tags);
     attachments.forEach(f => fd.append('attachments', f));
-    await axios.post('/api/reports/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    await axios.post('/api/reports/', fd, { headers: { 'Content-Type': 'multipart/form-data', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
   } else {
-    await axios.post('/api/reports/', { ...formData, status: 'submitted', tags: parseTags(tags) });
+    await axios.post('/api/reports/', { ...formData, status: 'submitted', tags: parseTags(tags) }, { headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
   }
         setSuccess('Report submitted successfully!');
       }
@@ -124,15 +125,16 @@ const ReportForm = () => {
     setLoading(true);
     
     try {
+      const authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (isEdit) {
           if (attachments.length > 0) {
             const fd = new FormData();
             Object.entries({ ...formData, status: 'draft' }).forEach(([k,v]) => fd.append(k, v));
             if (tags) fd.append('tags', tags);
             attachments.forEach(f => fd.append('attachments', f));
-            await axios.put(`/api/reports/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+            await axios.put(`/api/reports/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
           } else {
-            await axios.put(`/api/reports/${id}`, { ...formData, status: 'draft', tags: parseTags(tags) });
+            await axios.put(`/api/reports/${id}`, { ...formData, status: 'draft', tags: parseTags(tags) }, { headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
           }
         setSuccess('Report saved as draft!');
       } else {
@@ -141,9 +143,9 @@ const ReportForm = () => {
       Object.entries({ ...formData, status: 'draft' }).forEach(([k,v]) => fd.append(k, v));
       if (tags) fd.append('tags', tags);
       attachments.forEach(f => fd.append('attachments', f));
-      await axios.post('/api/reports/', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await axios.post('/api/reports/', fd, { headers: { 'Content-Type': 'multipart/form-data', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
     } else {
-      await axios.post('/api/reports/', { ...formData, status: 'draft', tags: parseTags(tags) });
+      await axios.post('/api/reports/', { ...formData, status: 'draft', tags: parseTags(tags) }, { headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
     }
         setSuccess('Report saved as draft!');
       }
@@ -315,6 +317,28 @@ const ReportForm = () => {
               >
                 Submit Report
               </Button>
+              {isEdit && (
+                <Button
+                  type="button"
+                  variant="outlined"
+                  onClick={async () => {
+                    try {
+                      const res = await axios.get(`/api/reports/${id}/pdf`, { responseType: 'blob' });
+                      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.setAttribute('download', `report_${id}.pdf`);
+                      document.body.appendChild(link);
+                      link.click();
+                      link.parentNode.removeChild(link);
+                    } catch (err) {
+                      console.error('Download PDF failed', err);
+                    }
+                  }}
+                >
+                  Download PDF
+                </Button>
+              )}
             </Box>
           </Box>
         </Paper>

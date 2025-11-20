@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app, send_from_directory, make_response
+from flask import Blueprint, request, jsonify, current_app, send_from_directory, make_response, send_file
 import os
 import uuid
 import csv
@@ -150,6 +150,7 @@ def get_user_reports(current_user):
         return jsonify({"msg": str(e)}), 500
 
 @reports_bp.route('/', methods=['GET'])
+@reports_bp.route('', methods=['GET'])
 @token_required
 @admin_required
 def get_all_reports(current_user):
@@ -161,6 +162,7 @@ def get_all_reports(current_user):
         start = request.args.get('start')
         end = request.args.get('end')
         department = request.args.get('department')
+        user_id = request.args.get('user_id')
 
         query = {}
 
@@ -192,6 +194,13 @@ def get_all_reports(current_user):
             user_ids = [u['_id'] for u in mongo.db.users.find({'department': department}, {'_id': 1})]
             if user_ids:
                 query['user_id'] = {'$in': user_ids}
+
+        # filter by specific user id if provided
+        if user_id:
+            try:
+                query['user_id'] = ObjectId(user_id)
+            except Exception:
+                return jsonify({"msg": "Invalid user_id"}), 400
 
         if q:
             regex = {'$regex': q, '$options': 'i'}
@@ -350,21 +359,63 @@ def delete_report(current_user, report_id):
 @reports_bp.route('/export', methods=['GET'])
 @token_required
 def export_reports(current_user):
-    """Export reports as CSV. Admins can export all reports by passing ?all=true"""
+    """Export reports as CSV or XLSX. Admins can export all reports by passing ?all=true
+    Query params:
+      - format: csv (default) or xlsx
+    """
     try:
         export_all = request.args.get('all', 'false').lower() == 'true'
         if export_all and current_user.get('role') != 'admin':
             return jsonify({"msg": "Not authorized"}), 401
+
+        fmt = (request.args.get('format') or 'csv').lower()
 
         if export_all:
             reports = Report.find_all()
         else:
             reports = Report.find_by_user(str(current_user['_id']))
 
-        # Prepare CSV
+        headers = ['id', 'user_id', 'user_name', 'user_email', 'week', 'year', 'month', 'status', 'created_at', 'submitted_at', 'achievements', 'challenges', 'next_week_plan', 'attachments']
+
+        if fmt == 'xlsx':
+            try:
+                from openpyxl import Workbook  # type: ignore[import]
+            except Exception:
+                return jsonify({"msg": "XLSX export dependency missing (openpyxl)."}), 500
+
+            wb = Workbook()
+            ws = wb.active
+            ws.title = 'Reports'
+            ws.append(headers)
+
+            for r in reports:
+                attachments_field = ';'.join([a.get('original_name', a.get('filename')) for a in (r.get('attachments') or [])])
+                row = [
+                    r.get('_id'),
+                    r.get('user_id'),
+                    r.get('user', {}).get('name'),
+                    r.get('user', {}).get('email'),
+                    r.get('week'),
+                    r.get('year'),
+                    r.get('month'),
+                    r.get('status'),
+                    r.get('created_at'),
+                    r.get('submitted_at'),
+                    r.get('achievements'),
+                    r.get('challenges'),
+                    r.get('next_week_plan'),
+                    attachments_field
+                ]
+                ws.append(row)
+
+            bio = io.BytesIO()
+            wb.save(bio)
+            bio.seek(0)
+            return send_file(bio, as_attachment=True, download_name='reports.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+        # default CSV
         si = io.StringIO()
         writer = csv.writer(si)
-        headers = ['id', 'user_id', 'user_name', 'user_email', 'week', 'year', 'month', 'status', 'created_at', 'submitted_at', 'achievements', 'challenges', 'next_week_plan', 'attachments']
         writer.writerow(headers)
 
         for r in reports:
@@ -391,6 +442,105 @@ def export_reports(current_user):
         output.headers["Content-Disposition"] = "attachment; filename=reports.csv"
         output.headers["Content-type"] = "text/csv"
         return output
+    except Exception as e:
+        return jsonify({"msg": str(e)}), 500
+
+
+@reports_bp.route('/<report_id>/pdf', methods=['GET'])
+@token_required
+def download_report_pdf(current_user, report_id):
+    """Generate a simple PDF for a report and return it as a download."""
+    try:
+        report = Report.find_by_id(report_id)
+        if not report:
+            return jsonify({"msg": "Report not found"}), 404
+
+        # Permission: owner or admin
+        if report['user_id'] != str(current_user['_id']) and current_user.get('role') != 'admin':
+            return jsonify({"msg": "Not authorized"}), 401
+
+        # Generate PDF in-memory
+        try:
+            # Pylance sometimes cannot resolve binary-only packages in the editor
+            # even when they are installed at runtime. Silence the unresolved-import
+            # diagnostic while keeping the runtime import behavior.
+            from reportlab.lib.pagesizes import letter  # type: ignore[import]
+            from reportlab.pdfgen import canvas  # type: ignore[import]
+        except Exception:
+            return jsonify({"msg": "PDF generation dependencies missing (reportlab)."}), 500
+
+        # Use Platypus for a clean layout with tables
+        from reportlab.lib import colors  # type: ignore[import]
+        from reportlab.lib.styles import getSampleStyleSheet  # type: ignore[import]
+        from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Paragraph, Spacer, Table, TableStyle  # type: ignore[import]
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=50, rightMargin=50, topMargin=50, bottomMargin=50)
+        styles = getSampleStyleSheet()
+        story = []
+
+        # Logo centered
+        logo_path = os.getenv('PDF_LOGO_PATH', os.path.abspath(os.path.join(current_app.root_path, 'static', 'logo.png')))
+        if os.path.isfile(logo_path):
+            img = RLImage(logo_path, width=120, height=40, kind='proportional')
+            img.hAlign = 'LEFT'
+            story.append(img)
+            story.append(Paragraph('<font size=8 color="#666">(Weekly Report)</font>', styles['Italic']))
+            story.append(Spacer(1, 8))
+
+        # Title
+        title = Paragraph(f"<b>Weekly Report — Week {report.get('week')} {report.get('year')}</b>", styles['Title'])
+        story.append(title)
+        story.append(Spacer(1, 6))
+
+        # Info tables
+        user = report.get('user', {})
+        info_data = [
+            ['Report ID', str(report.get('_id'))],
+            ['Name', user.get('name', '')],
+            ['Username', user.get('username', '-')],
+            ['Email', user.get('email', '')],
+            ['Department', user.get('department', '-')],
+            ['Status', report.get('status')],
+            ['Created', str(report.get('created_at'))],
+            ['Submitted', str(report.get('submitted_at') or '-')],
+        ]
+        table = Table(info_data, colWidths=[110, 380])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke),
+            ('TEXTCOLOR', (0,0), (-1,-1), colors.black),
+            ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,0), (-1,-1), 9),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+            ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#F3F4F6')),
+        ]))
+        story.append(table)
+        story.append(Spacer(1, 10))
+
+        # Long text sections as bordered tables
+        def section_table(title: str, text: str):
+            para = Paragraph(text.replace('\n', '<br/>') if text else '-', styles['BodyText'])
+            t = Table([[Paragraph(f'<b>{title}</b>', styles['BodyText'])], [para]], colWidths=[490])
+            t.setStyle(TableStyle([
+                ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F3F4F6')),
+                ('FONTSIZE', (0,0), (-1,-1), 9),
+            ]))
+            return t
+
+        story.append(section_table('Achievements', report.get('achievements')))
+        story.append(Spacer(1, 6))
+        story.append(section_table('Challenges', report.get('challenges')))
+        story.append(Spacer(1, 6))
+        story.append(section_table("Next Week's Plan", report.get('next_week_plan')))
+        story.append(Spacer(1, 6))
+        tags_str = ', '.join(report.get('tags') or [])
+        story.append(section_table('Tags', tags_str))
+
+        doc.build(story)
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=f"report_{report_id}.pdf", mimetype='application/pdf')
     except Exception as e:
         return jsonify({"msg": str(e)}), 500
 
@@ -503,7 +653,7 @@ def approve_report(current_user, report_id):
         if report.get('status') != 'submitted':
             return jsonify({"msg": "Only submitted reports can be approved"}), 400
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         comment = data.get('comment')
 
         approval = {
@@ -611,5 +761,137 @@ def get_audit_logs(current_user):
             l['created_at'] = l.get('created_at')
             logs.append(l)
         return jsonify(logs)
+    except Exception as e:
+        return jsonify({"msg": str(e)}), 500
+
+
+@reports_bp.route('/<report_id>/email', methods=['POST'])
+@token_required
+def email_report(current_user, report_id):
+    """Email a report link to a recipient. Defaults to current user's supervisor_email if not provided.
+    Body JSON (optional): { "recipient": "email@example.com" }
+    """
+    try:
+        report = Report.find_by_id(report_id)
+        if not report:
+            return jsonify({"msg": "Report not found"}), 404
+
+        # Permission: owner or admin
+        if report['user_id'] != str(current_user['_id']) and current_user.get('role') != 'admin':
+            return jsonify({"msg": "Not authorized"}), 401
+
+        data = request.get_json() or {}
+        recipient = data.get('recipient')
+        recipients = []
+        if recipient:
+            recipients = [recipient]
+        else:
+            # default to emailing all admins; fallback to env ADMIN_EMAIL; then supervisor
+            try:
+                admins = list(mongo.db.users.find({ 'role': 'admin' }, { 'email': 1 }))
+                admin_emails = [a.get('email') for a in admins if a.get('email')]
+            except Exception:
+                admin_emails = []
+            if admin_emails:
+                recipients = admin_emails
+            else:
+                env_admin = os.getenv('ADMIN_EMAIL')
+                if env_admin:
+                    recipients = [env_admin]
+            if not recipients:
+                # final fallback: supervisor email from current user profile
+                user = User.find_by_id(str(current_user['_id']))
+                sup = user.get('supervisor_email') if user else None
+                if sup:
+                    recipients = [sup]
+        if not recipients:
+            return jsonify({"msg": "No admin or supervisor email configured"}), 400
+
+        # Build link to PDF and dashboard; prefer APP_BASE_URL if set
+        base_url = os.getenv('APP_BASE_URL', 'http://localhost:5000')
+        pdf_link = f"{base_url}/api/reports/{report_id}/pdf"
+        # Simple email body
+        subject = f"Weekly Report — Week {report.get('week')} {report.get('year')}"
+        owner = report.get('user', {})
+        body = (
+            f"Hello,\n\n"
+            f"{owner.get('name','An employee')} has submitted a weekly report for week {report.get('week')}, {report.get('year')}.\n"
+            f"Status: {report.get('status')}\n\n"
+            f"Download PDF: {pdf_link}\n\n"
+            f"— Weekly Report System"
+        )
+
+        sent = 0
+        for r in recipients:
+            ok = send_email(r, subject, body)
+            if ok:
+                sent += 1
+        if sent == 0:
+            return jsonify({"msg": "Email sending is not configured or failed"}), 500
+
+        try:
+            log_action(str(current_user['_id']), 'email', report_id, {'to': recipient})
+        except Exception:
+            pass
+
+        return jsonify({ 'msg': 'Email sent', 'to': recipients })
+    except Exception as e:
+        return jsonify({"msg": str(e)}), 500
+
+
+@reports_bp.route('/reminders/send', methods=['POST'])
+@token_required
+@admin_required
+def send_missing_report_reminders(current_user):
+    """Send reminders (email/Slack) to users who have not submitted a report for current ISO week/year.
+    Requires SMTP/Slack env vars to be configured to actually deliver.
+    """
+    try:
+        now = datetime.datetime.utcnow()
+        # ISO week number
+        iso_year, iso_week, _ = now.isocalendar()
+
+        # Find users who have NOT submitted a report for this week (status submitted/approved/rejected counts as submitted)
+        submitted_user_ids = mongo.db.reports.distinct(
+            'user_id',
+            {
+                'year': iso_year,
+                'week': str(iso_week),
+                'status': { '$in': ['submitted', 'approved', 'rejected'] }
+            }
+        )
+
+        # Get all users
+        users_cursor = mongo.db.users.find({}, { 'name': 1, 'email': 1, 'department': 1 })
+        users = list(users_cursor)
+
+        to_notify = [u for u in users if u['_id'] not in submitted_user_ids]
+
+        notified = []
+        for u in to_notify:
+            email = u.get('email')
+            name = u.get('name', '')
+            if email:
+                subject = f"Reminder: Weekly report for ISO week {iso_week} ({iso_year})"
+                body = (
+                    f"Hi {name},\n\n"
+                    f"This is a friendly reminder to submit your weekly report for ISO week {iso_week} ({iso_year}).\n"
+                    f"Please visit the dashboard to create or submit your report.\n\n"
+                    f"Thanks!"
+                )
+                send_email(email, subject, body)
+            notified.append({'user_id': str(u['_id']), 'email': email})
+
+        # Slack summary (if configured)
+        try:
+            if to_notify:
+                send_slack(f"Sent weekly report reminders to {len(to_notify)} user(s) for week {iso_week} {iso_year}.")
+            else:
+                send_slack(f"No reminders needed: all users submitted for week {iso_week} {iso_year}.")
+        except Exception:
+            pass
+
+        # lightweight response
+        return jsonify({ 'week': iso_week, 'year': iso_year, 'notified_count': len(to_notify), 'notified': notified })
     except Exception as e:
         return jsonify({"msg": str(e)}), 500

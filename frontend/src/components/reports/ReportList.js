@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useHistory } from 'react-router-dom';
 import axios from 'axios';
-import { Container, Paper, Typography, Box, Button, Card, CardContent, CardActions, Grid, Chip } from '@mui/material';
+import { Container, Paper, Typography, Box, Button, Card, CardContent, CardActions, Grid, Chip, Grow, Tooltip } from '@mui/material';
 import { TextField, MenuItem } from '@mui/material';
 
 const ReportList = () => {
@@ -53,29 +53,48 @@ const ReportList = () => {
           <TextField size="small" placeholder="tags (comma)" value={tagsFilter} onChange={e => setTagsFilter(e.target.value)} />
           <Button variant="contained" onClick={() => history.push('/reports/new')}>Create New Report</Button>
         </Box>
-        <Button variant="outlined" sx={{ ml: 2 }} onClick={async () => {
-          try {
-            const res = await axios.get('/api/reports/export?format=csv', { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'reports.csv');
-            document.body.appendChild(link);
-            link.click();
-            link.parentNode.removeChild(link);
-          } catch (err) {
-            console.error('Export failed', err);
-          }
-        }}>
-          Export CSV
-        </Button>
+        <Box sx={{ ml: 2, display: 'flex', gap: 1 }}>
+          <Button variant="outlined" onClick={async () => {
+            try {
+              const res = await axios.get('/api/reports/export?format=csv', { responseType: 'blob' });
+              const url = window.URL.createObjectURL(new Blob([res.data]));
+              const link = document.createElement('a');
+              link.href = url;
+              link.setAttribute('download', 'reports.csv');
+              document.body.appendChild(link);
+              link.click();
+              link.parentNode.removeChild(link);
+            } catch (err) {
+              console.error('Export failed', err);
+            }
+          }}>
+            Export CSV
+          </Button>
+          <Button variant="outlined" onClick={async () => {
+            try {
+              const res = await axios.get('/api/reports/export?format=xlsx', { responseType: 'blob' });
+              const url = window.URL.createObjectURL(new Blob([res.data]));
+              const link = document.createElement('a');
+              link.href = url;
+              link.setAttribute('download', 'reports.xlsx');
+              document.body.appendChild(link);
+              link.click();
+              link.parentNode.removeChild(link);
+            } catch (err) {
+              console.error('Export XLSX failed', err);
+            }
+          }}>
+            Export XLSX
+          </Button>
+        </Box>
       </Box>
       
       {reports.length > 0 ? (
         <Grid container spacing={3}>
-          {reports.map(report => (
+          {reports.map((report, idx) => (
             <Grid item xs={12} md={6} lg={4} key={report._id}>
-              <Card>
+              <Grow in appear timeout={300 + idx * 80} style={{ transformOrigin: '0 0 0' }}>
+                <Card>
                 <CardContent>
                   <Typography variant="h5" component="div">
                     Week {report.week}, {report.year}
@@ -103,8 +122,52 @@ const ReportList = () => {
                   <Button size="small" onClick={() => history.push(`/reports/edit/${report._id}`)}>
                     View/Edit
                   </Button>
+                  <Tooltip title="Emails the report link to all admins (or configured admin email)">
+                    <Button size="small" onClick={async () => {
+                      try {
+                        await axios.post(`/api/reports/${report._id}/email`);
+                        alert('Email sent (if email is configured).');
+                      } catch (err) {
+                        console.error('Email send failed', err);
+                        alert(err.response?.data?.msg || 'Failed to send email');
+                      }
+                    }}>
+                      Email Admin
+                    </Button>
+                  </Tooltip>
+                  <Button size="small" onClick={async () => {
+                    // Download PDF
+                    try {
+                      const res = await axios.get(`/api/reports/${report._id}/pdf`, { responseType: 'blob' });
+                      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.setAttribute('download', `report_${report._id}.pdf`);
+                      document.body.appendChild(link);
+                      link.click();
+                      link.parentNode.removeChild(link);
+                    } catch (err) {
+                      console.error('Download PDF failed', err);
+                    }
+                  }}>
+                    Download PDF
+                  </Button>
+                  <Button size="small" color="error" onClick={async () => {
+                    // Delete report with confirmation
+                    if (!window.confirm('Delete this report? This action cannot be undone.')) return;
+                    try {
+                      await axios.delete(`/api/reports/${report._id}`);
+                      setReports(prev => prev.filter(r => r._id !== report._id));
+                    } catch (err) {
+                      console.error('Delete failed', err);
+                      alert('Failed to delete report');
+                    }
+                  }}>
+                    Delete
+                  </Button>
                 </CardActions>
-              </Card>
+                </Card>
+              </Grow>
             </Grid>
           ))}
         </Grid>

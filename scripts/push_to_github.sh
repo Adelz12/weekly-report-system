@@ -28,12 +28,14 @@ fi
 
 if command -v gh >/dev/null 2>&1; then
   echo "gh CLI detected. Creating remote repository using gh..."
-  # Try to create public repo; fallback to interactive mode if name exists
-  gh repo create "$REPO_NAME" --public --source=. --remote=origin --push || {
-    echo "gh repo create failed (maybe repo exists). Please provide a remote URL or create the repo manually.";
-  }
-  echo "Done (if gh succeeded)."
-  exit 0
+  # Try to create public repo and push; if it fails we'll fall back to asking for a remote URL.
+  if gh repo create "$REPO_NAME" --public --source=. --remote=origin --push; then
+    echo "Repository created and pushed using gh."
+    exit 0
+  else
+    echo "gh repo create failed (maybe the repo already exists or gh is not authenticated)."
+    echo "Falling back to manual remote URL input."
+  fi
 fi
 
 echo "gh CLI not found. Please create an empty repository on GitHub (https://github.com/new) and provide its remote URL."
@@ -48,4 +50,19 @@ git remote add origin "$REMOTE" || git remote set-url origin "$REMOTE"
 git branch -M main || true
 git push -u origin main
 
-echo "Pushed to $REMOTE. Visit https://github.com/$(echo $REMOTE | sed -E 's#.*/(.*)\.git#\1#')"
+# Try to extract owner/repo from the remote URL for a friendly link
+REPO_PATH=""
+if echo "$REMOTE" | grep -qE '^git@github.com:'; then
+  REPO_PATH=$(echo "$REMOTE" | sed -E 's#git@github.com:(.*)\.git#\1#')
+elif echo "$REMOTE" | grep -qE '^https?://github.com/'; then
+  REPO_PATH=$(echo "$REMOTE" | sed -E 's#https?://github.com/(.*)\.git#\1#')
+else
+  # Fallback: try to strip trailing .git
+  REPO_PATH=$(echo "$REMOTE" | sed -E 's#(.*)\.git#\1#')
+fi
+
+if [ -n "$REPO_PATH" ]; then
+  echo "Pushed to $REMOTE. Visit https://github.com/$REPO_PATH"
+else
+  echo "Pushed to $REMOTE."
+fi

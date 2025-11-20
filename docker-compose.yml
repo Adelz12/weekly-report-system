@@ -20,6 +20,14 @@ services:
     environment:
       - MONGODB_URI=mongodb://admin:password@mongodb:27017/weekly-reports?authSource=admin
       - JWT_SECRET=your_jwt_secret_key
+      # --- Email (Gmail SMTP) ---
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=youraddress@gmail.com
+      - SMTP_PASS=YOUR_APP_PASSWORD
+      - SMTP_FROM=youraddress@gmail.com
+      - APP_BASE_URL=http://localhost:5000
+      - EMAIL_DEV_MODE=false
     ports:
       - "5000:5000"
     depends_on:

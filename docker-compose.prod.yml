@@ -24,8 +24,8 @@ services:
   frontend:
     build: ./frontend
     container_name: frontend
-    restart: unless-stopped
-
+    restart: unless-stopped 
+    
   nginx:
     image: nginx:alpine
     container_name: nginx

@@ -1,10 +1,15 @@
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
-    "python.pythonPath": "${workspaceFolder}/backend/.venv/bin/python",
-    "python.analysis.extraPaths": [
-        "./backend"
-    ],
-    "cursorpyright.analysis.extraPaths": [
-        "./backend"
-    ]
+  "files.readonlyInclude": {},
+  "files.readonlyExclude": {},
+  "files.watcherExclude": {},
+  "editor.readonly": false,
+  "workbench.editor.enablePreview": false,
+  "files.eol": "\n",
+  "files.readonlyFromPermissions": false,
+  "files.readonlyFromPermissionsMessage": "never",
+  "workbench.editor.closeOnFileDelete": false,
+  "security.workspace.trust.enabled": false,
+  "security.workspace.trust.untrustedFiles": "open",
+  "security.workspace.trust.banner": "never",
+  "security.workspace.trust.startupPrompt": "never"
 }

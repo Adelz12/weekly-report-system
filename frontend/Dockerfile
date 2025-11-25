@@ -1,19 +1,21 @@
-FROM node:16-alpine as build
+# Frontend Build Stage
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
 COPY package*.json ./
-# Increase npm resilience for slow networks
-ENV NPM_CONFIG_FETCH_TIMEOUT=120000 \
-    NPM_CONFIG_FETCH_RETRIES=5 \
-    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
-    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000
-RUN npm install
+
+ENV NPM_CONFIG_LOGLEVEL=warn
+
+RUN npm ci --prefer-offline --no-audit
 
 COPY . .
-RUN npm run build
 
-FROM nginx:alpine
+RUN npx react-scripts build
+
+# Nginx Production Stage
+FROM nginx:1.27-alpine
+
 COPY --from=build /app/build /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
 

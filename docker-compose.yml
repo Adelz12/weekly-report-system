@@ -2,51 +2,28 @@ services:
   mongodb:
     image: mongo:latest
     container_name: mongodb
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
     ports:
       - "27018:27017"
     volumes:
-      - mongodb_data:/data/db
+      - mongo_data:/data/db
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/adelz12/weekly-report-backend:latest
     container_name: backend
-    restart: unless-stopped
-    environment:
-      - MONGODB_URI=mongodb://admin:password@mongodb:27017/weekly-reports?authSource=admin
-      - JWT_SECRET=your_jwt_secret_key
-      - SMTP_HOST=smtp.gmail.com
-      - SMTP_PORT=587
-      - SMTP_USER=youraddress@gmail.com
-      - SMTP_PASS=YOUR_APP_PASSWORD
-      - SMTP_FROM=youraddress@gmail.com
-      - APP_BASE_URL=http://localhost:5001
-      - EMAIL_DEV_MODE=false
     ports:
       - "5001:5000"
     depends_on:
       - mongodb
-    volumes:
-      - ./backend:/app
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/weekly_report
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/adelz12/weekly-report-frontend:latest
     container_name: frontend
-    restart: unless-stopped
     ports:
       - "3001:80"
     depends_on:
       - backend
 
 volumes:
-  mongodb_data:
-
-  
-
+  mongo_data:

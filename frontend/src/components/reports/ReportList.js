@@ -122,19 +122,7 @@ const ReportList = () => {
                   <Button size="small" onClick={() => history.push(`/reports/edit/${report._id}`)}>
                     View/Edit
                   </Button>
-                  <Tooltip title="Emails the report link to all admins (or configured admin email)">
-                    <Button size="small" onClick={async () => {
-                      try {
-                        await axios.post(`/api/reports/${report._id}/email`);
-                        alert('Email sent (if email is configured).');
-                      } catch (err) {
-                        console.error('Email send failed', err);
-                        alert(err.response?.data?.msg || 'Failed to send email');
-                      }
-                    }}>
-                      Email Admin
-                    </Button>
-                  </Tooltip>
+
                   <Button size="small" onClick={async () => {
                     // Download PDF
                     try {

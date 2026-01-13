@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Container, Paper, TextField, Button, Typography, Box, Alert, Grid } from '@mui/material';
-import { useAuth } from '../../context/authContext';
+
 
 const ReportForm = () => {
   const [formData, setFormData] = useState({
@@ -21,7 +21,6 @@ const ReportForm = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
-  const { user } = useAuth();
   const history = useHistory();
   const { id } = useParams();
 
@@ -65,7 +64,7 @@ const ReportForm = () => {
     return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
   };
 
-  const { week, year, achievements, challenges, nextWeekPlan, status } = formData;
+  const { week, year, achievements, challenges, nextWeekPlan } = formData;
 
   const parseTags = (tagsStr) => {
     if (!tagsStr) return [];
@@ -89,10 +88,10 @@ const ReportForm = () => {
           Object.entries({ ...formData, status: 'submitted' }).forEach(([k,v]) => fd.append(k, v));
           if (tags) fd.append('tags', tags);
           attachments.forEach(f => fd.append('attachments', f));
-          await axios.put(`/api/reports/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
+          await axios.put(`/api/reports/${id}`, fd);
         } else {
           // send JSON including parsed tags array
-          await axios.put(`/api/reports/${id}`, { ...formData, status: 'submitted', tags: parseTags(tags) }, { headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
+          await axios.put(`/api/reports/${id}`, { ...formData, status: 'submitted', tags: parseTags(tags) });
         }
         setSuccess('Report submitted successfully!');
       } else {
@@ -101,9 +100,9 @@ const ReportForm = () => {
     Object.entries({ ...formData, status: 'submitted' }).forEach(([k,v]) => fd.append(k, v));
     if (tags) fd.append('tags', tags);
     attachments.forEach(f => fd.append('attachments', f));
-    await axios.post('/api/reports/', fd, { headers: { 'Content-Type': 'multipart/form-data', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
+    await axios.post('/api/reports/', fd);
   } else {
-    await axios.post('/api/reports/', { ...formData, status: 'submitted', tags: parseTags(tags) }, { headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
+    await axios.post('/api/reports/', { ...formData, status: 'submitted', tags: parseTags(tags) });
   }
         setSuccess('Report submitted successfully!');
       }
@@ -132,9 +131,9 @@ const ReportForm = () => {
             Object.entries({ ...formData, status: 'draft' }).forEach(([k,v]) => fd.append(k, v));
             if (tags) fd.append('tags', tags);
             attachments.forEach(f => fd.append('attachments', f));
-            await axios.put(`/api/reports/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
+            await axios.put(`/api/reports/${id}`, fd);
           } else {
-            await axios.put(`/api/reports/${id}`, { ...formData, status: 'draft', tags: parseTags(tags) }, { headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
+            await axios.put(`/api/reports/${id}`, { ...formData, status: 'draft', tags: parseTags(tags) });
           }
         setSuccess('Report saved as draft!');
       } else {
@@ -143,9 +142,9 @@ const ReportForm = () => {
       Object.entries({ ...formData, status: 'draft' }).forEach(([k,v]) => fd.append(k, v));
       if (tags) fd.append('tags', tags);
       attachments.forEach(f => fd.append('attachments', f));
-      await axios.post('/api/reports/', fd, { headers: { 'Content-Type': 'multipart/form-data', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
+      await axios.post('/api/reports/', fd);
     } else {
-      await axios.post('/api/reports/', { ...formData, status: 'draft', tags: parseTags(tags) }, { headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
+      await axios.post('/api/reports/', { ...formData, status: 'draft', tags: parseTags(tags) });
     }
         setSuccess('Report saved as draft!');
       }

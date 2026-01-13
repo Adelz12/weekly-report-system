@@ -132,7 +132,7 @@ function App() {
         <Router>
           {(() => {
             const BackgroundImage = () => {
-              const location = useLocation();
+              useLocation();
               const url = process.env.REACT_APP_BG_URL || '/wallpaper.jpg';
               const blurActive = isAuthenticated; // blur after login
               return (

@@ -478,6 +478,8 @@ def download_report_pdf(current_user, report_id):
         doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=50, rightMargin=50, topMargin=50, bottomMargin=50)
         styles = getSampleStyleSheet()
         story = []
+        
+        BRAND_COLOR = colors.HexColor('#6366F1')
 
         # Logo centered
         logo_path = os.getenv('PDF_LOGO_PATH', os.path.abspath(os.path.join(current_app.root_path, 'static', 'logo.png')))
@@ -485,12 +487,14 @@ def download_report_pdf(current_user, report_id):
             img = RLImage(logo_path, width=120, height=40, kind='proportional')
             img.hAlign = 'LEFT'
             story.append(img)
-            story.append(Paragraph('<font size=8 color="#666">(Weekly Report)</font>', styles['Italic']))
             story.append(Spacer(1, 8))
 
         # Title
-        title = Paragraph(f"<b>Weekly Report — Week {report.get('week')} {report.get('year')}</b>", styles['Title'])
+        title_style = styles['Title']
+        title_style.textColor = BRAND_COLOR
+        title = Paragraph(f"<b>Weekly Report — Week {report.get('week')} {report.get('year')}</b>", title_style)
         story.append(title)
+        
         story.append(Spacer(1, 6))
 
         # Info tables
@@ -507,13 +511,14 @@ def download_report_pdf(current_user, report_id):
         ]
         table = Table(info_data, colWidths=[110, 380])
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke),
-            ('TEXTCOLOR', (0,0), (-1,-1), colors.black),
+            ('BACKGROUND', (0,0), (-1,0), BRAND_COLOR),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('TEXTCOLOR', (0,1), (-1,-1), colors.black),
             ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
             ('FONTSIZE', (0,0), (-1,-1), 9),
             ('ALIGN', (0,0), (-1,-1), 'LEFT'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-            ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#F3F4F6')),
+            ('BACKGROUND', (0,1), (0,-1), colors.HexColor('#F3F4F6')),
         ]))
         story.append(table)
         story.append(Spacer(1, 10))
@@ -524,7 +529,8 @@ def download_report_pdf(current_user, report_id):
             t = Table([[Paragraph(f'<b>{title}</b>', styles['BodyText'])], [para]], colWidths=[490])
             t.setStyle(TableStyle([
                 ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F3F4F6')),
+                ('BACKGROUND', (0,0), (-1,0), BRAND_COLOR),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
                 ('FONTSIZE', (0,0), (-1,-1), 9),
             ]))
             return t

@@ -11,6 +11,7 @@ RUN npm ci --prefer-offline --no-audit
 
 COPY . .
 
+ENV NODE_OPTIONS=--openssl-legacy-provider
 RUN npx react-scripts build
 
 # Nginx Production Stage

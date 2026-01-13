@@ -9,7 +9,8 @@ def token_required(f):
         # Validate JWT first; if this fails, report token error
         try:
             verify_jwt_in_request()
-        except Exception:
+        except Exception as e:
+            print(f"Token validation error: {e}", flush=True)
             return jsonify({"msg": "Token is invalid"}), 401
 
         # Resolve current user from token identity

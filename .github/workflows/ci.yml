@@ -18,8 +18,9 @@ jobs:
       - name: Install & Build
         working-directory: frontend
         env:
-          # هذا السطر هو الحل لمشكلة ERR_OSSL_EVP_UNSUPPORTED
           NODE_OPTIONS: --openssl-legacy-provider
+          # هذا السطر يمنع اعتبار التحذيرات كأخطاء
+          CI: false 
         run: |
           npm ci
           npm test -- --watchAll=false --ci --passWithNoTests

@@ -35,6 +35,9 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
+          # تمرير المتغير للـ Docker build
+          build-args: |
+            NODE_OPTIONS=--openssl-legacy-provider
           tags: |
             ghcr.io/adelz12/weekly-report-frontend:latest
             ghcr.io/adelz12/weekly-report-frontend:${{ github.sha }}
